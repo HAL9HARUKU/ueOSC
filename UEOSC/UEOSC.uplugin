@@ -1,0 +1,25 @@
+{
+	"FileVersion" : 3,
+	"Version" : 1,
+	"VersionName" : "0.1.0",
+	"FriendlyName" : "UEOSC",
+	"Description" : "OSC",
+	"Category" : "Other",
+	"CreatedBy" : "",
+	"CreatedByURL" : "",
+	"DocsURL" : "",
+	"MarketplaceURL" : "",
+	"SupportURL" : "",
+	"EnabledByDefault" : true,
+	"CanContainContent" : false,
+	"IsBetaVersion" : false,
+	"Installed" : false,
+	"Modules" :
+	[
+    {
+      "Name": "UEOSC",
+      "Type": "Runtime",
+      "LoadingPhase": "Default"
+    }
+	]
+}
