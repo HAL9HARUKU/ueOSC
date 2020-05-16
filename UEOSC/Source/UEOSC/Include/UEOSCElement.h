@@ -29,8 +29,23 @@ public:
 	EUEOSCElementType Type;
 	
 	int32 IntValue = 0;
+	uint64 LongValue = 0;
 	float FloatValue = 0;
 	FName StringValue;
 	TArray<uint8> BlobValue;
 	bool BoolValue = false;
+};
+
+
+/**
+ *
+ */
+USTRUCT(BlueprintType)
+struct UEOSC_API FUEOSCMessage
+{
+	GENERATED_USTRUCT_BODY()
+
+public:
+	FString Address;
+	TArray<FUEOSCElement> Elements;
 };

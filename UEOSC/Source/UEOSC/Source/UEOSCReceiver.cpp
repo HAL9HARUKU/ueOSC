@@ -55,128 +55,226 @@ void UUEOSCReceiver::OnReceived(const FArrayReaderPtr& InData, const FIPv4Endpoi
 		return;
 	}
 	
-	const uint8* Begin = InData->GetData();
-	const uint8* End = Begin + InData->Num();
-	const uint8* Data = Begin;
-	int32 Length = InData->Num();
-	int32 Count = 0;
+	// Read
+	TArray<FUEOSCMessage> Messages;
+	ReadOSC(Messages, InData->GetData(), InData->Num());
 
-	TArray<uint8> Buffer;
-	Buffer.SetNum(Length);
-	FMemory::Memcpy(Buffer.GetData(), Data, Length);
+	// Broadcast
+	const FString Ip = InIp.ToString();
+	for (const auto& Message : Messages)
+	{
+		this->OSCReceiveEventDelegate.Broadcast(FName(*Message.Address), Message.Elements, Ip);
+	}
+}
 
+void UUEOSCReceiver::ReadOSC(TArray<FUEOSCMessage>& OutValue, const uint8* InData, int32 Count)
+{
+	int32 DataSize = Count;
+	const uint8* Data = InData;
+	
+	int32 ReadSize = 0;
+	
 	// Address
 	FString Address;
-	Count = ReadOSCString(Address, Data, (int32)(End - Data));
-	if (Count == 0)
+	ReadSize = ReadOSCString(Address, Data, DataSize);
+	if (ReadSize == 0)
 	{
+		return;
 	}
-	Data += Count;
+	Data += ReadSize;
+	DataSize -= ReadSize;
 
-	// Sematics
-	FString Sematics;
-	Count = ReadOSCString(Sematics, Data, (int32)(End - Data));
-	if (Count == 0)
+	if (Address == TEXT("#bundle"))
 	{
-	}
-	Data += Count;
+		// Bundle
 
-	TArray<FUEOSCElement> Elements;
+		ReadSize = ReadOSCBundle(OutValue, Data, DataSize);
+		if (ReadSize == 0)
+		{
+			return;
+		}
+		Data += ReadSize;
+		DataSize -= ReadSize;
+	}
+	else
+	{
+		// Message
+		FUEOSCMessage Message;
+		
+		Message.Address = Address;
+		
+		ReadSize = ReadOSCMessage(Message, Data, DataSize);
+		if (ReadSize == 0)
+		{
+			return;
+		}
+		Data += ReadSize;
+		DataSize -= ReadSize;
+
+		OutValue.Emplace(Message);
+	}
+}
+
+uint32 UUEOSCReceiver::ReadOSCBundle(TArray<FUEOSCMessage>& OutValue, const uint8* InData, int32 Count)
+{
+	int32 DataSize = Count;
+	const uint8* Data = InData;
+	
+	int32 ReadSize = 0;
+	
+	// Time
+	uint64 Time = 0;
+	ReadSize = ReadOSCUint64(Time, Data, DataSize);
+	if (ReadSize == 0)
+	{
+		return Count - DataSize;
+	}
+	Data += ReadSize;
+	DataSize -= ReadSize;
+
+	while (DataSize > 0)
+	{
+		// Content Size
+		int32 ContentSize = 0;
+		ReadSize = ReadOSCInt32(ContentSize, Data, DataSize);
+		if (ReadSize == 0)
+		{
+			return Count - DataSize;
+		}
+		Data += ReadSize;
+		DataSize -= ReadSize;
+
+		if (ContentSize == (ContentSize & ~0x3))
+		{
+			// Message
+			ReadOSC(OutValue, Data, ContentSize);
+		}
+		
+		Data += ContentSize;
+		DataSize -= ContentSize;
+	}
+
+	return Count - DataSize;
+}
+
+uint32 UUEOSCReceiver::ReadOSCMessage(FUEOSCMessage& OutValue, const uint8* InData, int32 Count)
+{
+	int32 DataSize = Count;
+	const uint8* Data = InData;
+	
+	int32 ReadSize = 0;
+
+	// Semantics
+	FString Semantics;
+	ReadSize = ReadOSCString(Semantics, Data, DataSize);
+	if (ReadSize == 0)
+	{
+		return Count - DataSize;
+	}
+	Data += ReadSize;
+	DataSize -= ReadSize;
 
 	// Message
-	for (int32 Index = 1; Index < Sematics.Len(); ++Index)
+	for (int32 Index = 1; Index < Semantics.Len(); ++Index)
 	{
-		TCHAR S = Sematics[Index];
-		if (S == TEXT('i'))
+		TCHAR Semantic = Semantics[Index];
+		if (Semantic == TEXT('i'))
 		{
 			FUEOSCElement NewElement;
 			NewElement.Type = EUEOSCElementType::OET_Int32;
-			
-			Count = ReadOSCInt32(NewElement.IntValue, Data, (int32)(End - Data));
-			if (Count == 0)
+
+			ReadSize = ReadOSCInt32(NewElement.IntValue, Data, DataSize);
+			if (ReadSize == 0)
 			{
 				break;
 			}
-			Data += Count;
-			
-			Elements.Emplace(NewElement);
+			Data += ReadSize;
+			DataSize -= ReadSize;
+
+			OutValue.Elements.Emplace(NewElement);
 		}
-		else if (S == TEXT('f'))
+		else if (Semantic == TEXT('f'))
 		{
 			FUEOSCElement NewElement;
 			NewElement.Type = EUEOSCElementType::OET_Float;
-			
-			Count = ReadOSCFloat32(NewElement.FloatValue, Data, (int32)(End - Data));
-			if (Count == 0)
+
+			ReadSize = ReadOSCFloat32(NewElement.FloatValue, Data, DataSize);
+			if (ReadSize == 0)
 			{
 				break;
 			}
-			Data += Count;
+			Data += ReadSize;
+			DataSize -= ReadSize;
 
-			Elements.Emplace(NewElement);
+			OutValue.Elements.Emplace(NewElement);
 		}
-		else if (S == TEXT('s'))
+		else if (Semantic == TEXT('s'))
 		{
 			FUEOSCElement NewElement;
 			NewElement.Type = EUEOSCElementType::OET_String;
-			
-			Count = ReadOSCString(NewElement.StringValue, Data, (int32)(End - Data));
-			if (Count == 0)
+
+			ReadSize = ReadOSCString(NewElement.StringValue, Data, DataSize);
+			if (ReadSize == 0)
 			{
 				break;
 			}
-			Data += Count;
+			Data += ReadSize;
+			DataSize -= ReadSize;
 
-			Elements.Emplace(NewElement);
+			OutValue.Elements.Emplace(NewElement);
 		}
-		else if (S == TEXT('b'))
+		else if (Semantic == TEXT('b'))
 		{
 			FUEOSCElement NewElement;
 			NewElement.Type = EUEOSCElementType::OET_Blob;
-			
-			Count = ReadOSCBlob(NewElement.BlobValue, Data, (int32)(End - Data));
-			if (Count == 0)
+
+			ReadSize = ReadOSCBlob(NewElement.BlobValue, Data, DataSize);
+			if (ReadSize == 0)
 			{
 				break;
 			}
-			Data += Count;
+			Data += ReadSize;
+			DataSize -= ReadSize;
 
-			Elements.Emplace(NewElement);
+			OutValue.Elements.Emplace(NewElement);
 		}
-		else if (S == TEXT('T'))
+		else if (Semantic == TEXT('T'))
 		{
 			FUEOSCElement NewElement;
 			NewElement.Type = EUEOSCElementType::OET_Bool;
 			NewElement.BoolValue = true;
 
-			Elements.Emplace(NewElement);
+			OutValue.Elements.Emplace(NewElement);
 		}
-		else if (S == TEXT('F'))
+		else if (Semantic == TEXT('F'))
 		{
 			FUEOSCElement NewElement;
 			NewElement.Type = EUEOSCElementType::OET_Bool;
 			NewElement.BoolValue = false;
 
-			Elements.Emplace(NewElement);
+			OutValue.Elements.Emplace(NewElement);
 		}
-		else if (S == TEXT('N'))
+		else if (Semantic == TEXT('N'))
 		{
 			FUEOSCElement NewElement;
 			NewElement.Type = EUEOSCElementType::OET_Nil;
 
-			Elements.Emplace(NewElement);
+			OutValue.Elements.Emplace(NewElement);
 		}
 		else
 		{
 		}
 	}
 
-	// Broadcast
-	this->OSCReceiveEventDelegate.Broadcast(FName(*Address), Elements, InIp.ToString());
+	return Count - DataSize;
 }
 
 uint32 UUEOSCReceiver::ReadOSCInt32(int32& OutValue, const uint8* InData, int32 Count)
 {
+	if (Count < 4)
+	{
+		return 0;
+	}
 	uint8 Data[4];
 	Data[0] = InData[3];
 	Data[1] = InData[2];
@@ -186,8 +284,50 @@ uint32 UUEOSCReceiver::ReadOSCInt32(int32& OutValue, const uint8* InData, int32 
 	return 4;
 }
 
+uint32 UUEOSCReceiver::ReadOSCInt64(int64& OutValue, const uint8* InData, int32 Count)
+{
+	if (Count < 8)
+	{
+		return 0;
+	}
+	uint8 Data[8];
+	Data[0] = InData[7];
+	Data[1] = InData[6];
+	Data[2] = InData[5];
+	Data[3] = InData[4];
+	Data[4] = InData[3];
+	Data[5] = InData[2];
+	Data[6] = InData[1];
+	Data[7] = InData[0];
+	FMemory::Memcpy(&OutValue, Data, 8);
+	return 8;
+}
+
+uint32 UUEOSCReceiver::ReadOSCUint64(uint64& OutValue, const uint8* InData, int32 Count)
+{
+	if (Count < 8)
+	{
+		return 0;
+	}
+	uint8 Data[8];
+	Data[0] = InData[7];
+	Data[1] = InData[6];
+	Data[2] = InData[5];
+	Data[3] = InData[4];
+	Data[4] = InData[3];
+	Data[5] = InData[2];
+	Data[6] = InData[1];
+	Data[7] = InData[0];
+	FMemory::Memcpy(&OutValue, Data, 8);
+	return 8;
+}
+
 uint32 UUEOSCReceiver::ReadOSCFloat32(float& OutValue, const uint8* InData, int32 Count)
 {
+	if (Count < 4)
+	{
+		return 0;
+	}
 	uint8 Data[4];
 	Data[0] = InData[3];
 	Data[1] = InData[2];
@@ -227,6 +367,10 @@ uint32 UUEOSCReceiver::ReadOSCString(FName& OutValue, const uint8* InData, int32
 
 uint32 UUEOSCReceiver::ReadOSCBlob(TArray<uint8>& OutValue, const uint8* InData, int32 Count)
 {
+	if (Count < 4)
+	{
+		return 0;
+	}
 	// Size
 	int32 BlobSize;
 	uint8 Data[4];
@@ -235,8 +379,13 @@ uint32 UUEOSCReceiver::ReadOSCBlob(TArray<uint8>& OutValue, const uint8* InData,
 	Data[2] = InData[1];
 	Data[3] = InData[0];
 	InData += 4;
+	Count -= 4;
 	FMemory::Memcpy(&BlobSize, Data, 4);
 
+	if (Count < BlobSize)
+	{
+		return 0;
+	}
 	// Contents
 	OutValue.SetNum(BlobSize);
 	FMemory::Memcpy(OutValue.GetData(), InData, BlobSize);
