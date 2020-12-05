@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "UdpSocketReceiver.h"
+#include "Common/UdpSocketReceiver.h"
 #include "UEOSCElement.h"
 #include "UEOSCReceiver.generated.h"
 

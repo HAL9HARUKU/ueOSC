@@ -2,7 +2,7 @@
 
 #include "../Include/UEOSCReceiver.h"
 #include "../Include/UEOSCElement.h"
-#include "UdpSocketBuilder.h"
+#include "Common/UdpSocketBuilder.h"
 #include "Containers/StringConv.h"
 
 bool UUEOSCReceiver::Connect(int32 InPort)
