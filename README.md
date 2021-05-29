@@ -4,6 +4,7 @@ VMC4UE で OSC 受信するためのモジュールです。
 ## 動作環境
 - UE4.25
 - UE4.26
+- UE5.0EA1
 
 ## ライセンス
 MIT
@@ -12,6 +13,9 @@ MIT
 [はるく](https://twitter.com/HAL9_HARUKU)
 
 ## 履歴
+2021/05/29 v0.2.3
+Shipping に対応。
+
 2020/12/06 v0.2.2
 UE4.21 の DLL 非サポート。
 Git から DLL ファイルの削除。Release の Zip に追加。

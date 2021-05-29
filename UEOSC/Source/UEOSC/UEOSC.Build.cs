@@ -8,6 +8,6 @@ public class UEOSC : ModuleRules
     {
         PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 
-        PublicDependencyModuleNames.AddRange (new string[] { "Core", "CoreUObject", "Engine", "UnrealEd", "InputCore", "Networking", "Sockets" });
+        PublicDependencyModuleNames.AddRange (new string[] { "Core", "CoreUObject", "Engine", "InputCore", "Networking", "Sockets" });
     }
 }
