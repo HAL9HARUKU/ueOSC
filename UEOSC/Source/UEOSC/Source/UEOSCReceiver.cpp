@@ -4,6 +4,7 @@
 #include "../Include/UEOSCElement.h"
 #include "Common/UdpSocketBuilder.h"
 #include "Containers/StringConv.h"
+#include "Kismet/KismetMathLibrary.h"
 
 bool UUEOSCReceiver::Connect(int32 InPort)
 {
@@ -26,11 +27,14 @@ bool UUEOSCReceiver::Connect(int32 InPort)
 		return false;
 	}
 
+	this->Port = InPort;
 	this->Socket = NewSocket;
 	this->Receiver = NewReceiver;
 	
 	this->Receiver->OnDataReceived().BindUObject(this, &UUEOSCReceiver::OnReceived);
 	this->Receiver->Start();
+
+	this->LastUpdateTime = UKismetMathLibrary::Now();
 
 	return true;
 }
@@ -48,12 +52,20 @@ void UUEOSCReceiver::Disconnect()
 	}
 }
 
+bool UUEOSCReceiver::Reconnect()
+{
+	Disconnect();
+	return Connect(this->Port);
+}
+
 void UUEOSCReceiver::OnReceived(const FArrayReaderPtr& InData, const FIPv4Endpoint& InIp)
 {
 	if (!InData.IsValid())
 	{
 		return;
 	}
+
+	this->LastUpdateTime = UKismetMathLibrary::Now();
 	
 	// Read
 	TArray<FUEOSCMessage> Messages;

@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Common/UdpSocketReceiver.h"
+#include "Misc/DateTime.h"
 #include "UEOSCElement.h"
 #include "UEOSCReceiver.generated.h"
 
@@ -21,12 +22,26 @@ class UEOSC_API UUEOSCReceiver : public UObject
     GENERATED_BODY()
 
 private:
+	UPROPERTY()
+	int32 Port;
 	TSharedPtr<FSocket> Socket;
 	TSharedPtr<FUdpSocketReceiver> Receiver;
+	UPROPERTY()
+	FDateTime LastUpdateTime;
+public:
+	int32 GetPort() const
+	{
+		return this->Port;
+	}
+	const FDateTime GetLastUpdateTime() const
+	{
+		return this->LastUpdateTime;
+	}
 	
 public:
 	bool Connect(int32 InPort);
 	void Disconnect();
+	bool Reconnect();
 
 private:
 	void OnReceived(const FArrayReaderPtr& InData, const FIPv4Endpoint& InIp);
